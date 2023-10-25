@@ -7,7 +7,7 @@ require (
 	github.com/greenplum-db/gp-common-go-libs v1.0.11
 	github.com/spf13/cobra v1.6.1
 	github.com/spf13/viper v1.16.0
-	google.golang.org/grpc v1.55.0
+	google.golang.org/grpc v1.56.3
 	google.golang.org/protobuf v1.30.0
 )
 
