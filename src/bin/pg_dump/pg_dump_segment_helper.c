@@ -34,12 +34,6 @@ onSegmentHelper_RunDump(const char *inputFileSpec, int compressLevel, ArchiveFor
 	Archive		   *AH;
 	RestoreOptions *ropt;
 
-	int plainText = 0;
-
-	/* archiveFormat specific setup */
-	if (format == archNull)
-		plainText = 1;
-
 	/* Open the output file */
 	AH = CreateArchive(
 		inputFileSpec, format, compressLevel, archModeWrite, setupDumpWorkerDummy
@@ -60,15 +54,11 @@ onSegmentHelper_RunDump(const char *inputFileSpec, int compressLevel, ArchiveFor
 	 */
 	ropt = NewRestoreOptions();
 	ropt->filename = inputFileSpec;
-
-	if (compressLevel == -1)
-		ropt->compression = 0;
-	else
-		ropt->compression = compressLevel;
+	ropt->compression = compressLevel == -1 ? 0 : compressLevel;
 
 	((ArchiveHandle *)AH)->ropt = ropt;
 
-	if (plainText)
+	if (format == archNull)
 		RestoreArchive(AH);
 
 	CloseArchive(AH);
@@ -85,8 +75,7 @@ onSegmentHelper_RunRestore(const char *inputFileSpec, int compressLevel, Archive
 	if (compressLevel != 0)
 		return runRestore_CompressedPlainText(inputFileSpec);
 #endif
-	else
-		return runRestore_PlainText(inputFileSpec);
+	return runRestore_PlainText(inputFileSpec);
 }
 
 static int
@@ -131,7 +120,7 @@ runRestore_PlainText(const char *inputFileSpec)
 	const int	bufferSize = 1024;
 	const char *buffer[bufferSize];
 
-	size_t readLen = 0;
+	size_t readLen;
 	while ((readLen = fread(buffer, sizeof(char), bufferSize, readFd)) > 0)
 	{
 		if (fwrite(buffer, readLen, sizeof(char), stdout) == 0)
