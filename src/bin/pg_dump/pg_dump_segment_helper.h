@@ -16,3 +16,4 @@ extern int onSegmentHelper_RunRestore(const char *inputFileSpec, int compressLev
 extern int onSegmentHelper_RunDump(const char *inputFileSpec, int compressLevel, ArchiveFormat format);
 
 #endif // PG_DUMP_SEGMENT_HELPER
+
