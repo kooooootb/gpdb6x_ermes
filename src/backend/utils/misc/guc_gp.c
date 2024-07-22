@@ -44,6 +44,7 @@
 #include "storage/proc.h"
 #include "tcop/idle_resource_cleaner.h"
 #include "utils/builtins.h"
+#include "utils/guc.h"
 #include "utils/guc_tables.h"
 #include "utils/inval.h"
 #include "utils/resscheduler.h"
@@ -161,6 +162,7 @@ bool		gp_log_suboverflow_statement = false;
 bool        gp_use_synchronize_seqscans_catalog_vacuum_full = false;
 
 bool		log_dispatch_stats = false;
+bool		gp_keep_partition_children_locks = true;
 
 int			explain_memory_verbosity = 0;
 char	   *memory_profiler_run_id = "none";
@@ -294,6 +296,7 @@ bool		gp_log_dynamic_partition_pruning = false;
 bool		gp_cte_sharing = false;
 bool		gp_enable_relsize_collection = false;
 bool		gp_recursive_cte = true;
+bool		gp_enable_mdqa_shared_scan = true;
 
 /* Optimizer related gucs */
 bool		optimizer;
@@ -307,6 +310,7 @@ int			optimizer_cost_model;
 bool		optimizer_metadata_caching;
 int			optimizer_mdcache_size;
 bool		optimizer_use_gpdb_allocators;
+bool		optimizer_enable_table_alias;
 
 /* Optimizer debugging GUCs */
 bool		optimizer_print_query;
@@ -357,6 +361,8 @@ bool		optimizer_enable_dml_constraints;
 bool		optimizer_enable_master_only_queries;
 bool		optimizer_enable_hashjoin;
 bool		optimizer_enable_dynamictablescan;
+bool		optimizer_enable_dynamicindexscan;
+bool		optimizer_enable_dynamicbitmapscan;
 bool		optimizer_enable_indexscan;
 bool		optimizer_enable_indexonlyscan;
 bool		optimizer_enable_tablescan;
@@ -472,6 +478,9 @@ bool		gp_log_endpoints = false;
 
 /* optional reject to  parse ambigous 5-digits date in YYYMMDD format */
 bool		gp_allow_date_field_width_5digits = false;
+
+/* GUC to set interval for streaming archival status */
+int wal_sender_archiving_status_interval;
 
 static const struct config_enum_entry gp_log_format_options[] = {
 	{"text", 0},
@@ -2075,6 +2084,18 @@ struct config_bool ConfigureNamesBool_gp[] =
 		true, NULL, NULL
 	},
 
+		{
+		{"gp_enable_mdqa_shared_scan", PGC_USERSET, QUERY_TUNING_METHOD,
+			gettext_noop("Planner Only. True: planner will decide whether to use shared scan in the plan for"
+			"multiple DQA query based on costs calculation for better performance. False: disable it to avoid"
+			"large spill file."),
+			NULL,
+			GUC_NO_SHOW_ALL | GUC_NOT_IN_SAMPLE
+		},
+		&gp_enable_mdqa_shared_scan,
+		true, NULL, NULL
+	},
+
 	{
 		{"optimizer", PGC_USERSET, QUERY_TUNING_METHOD,
 			gettext_noop("Enable Pivotal Query Optimizer."),
@@ -2474,6 +2495,28 @@ struct config_bool ConfigureNamesBool_gp[] =
 			GUC_NO_SHOW_ALL | GUC_NOT_IN_SAMPLE
 		},
 		&optimizer_enable_dynamictablescan,
+		true,
+		NULL, NULL, NULL
+	},
+
+	{
+		{"optimizer_enable_dynamicindexscan", PGC_USERSET, DEVELOPER_OPTIONS,
+			gettext_noop("Enables the optimizer's use of plans with dynamic index scan."),
+			NULL,
+			GUC_NOT_IN_SAMPLE
+		},
+		&optimizer_enable_dynamicindexscan,
+		true,
+		NULL, NULL, NULL
+	},
+
+	{
+		{"optimizer_enable_dynamicbitmapscan", PGC_USERSET, DEVELOPER_OPTIONS,
+			gettext_noop("Enables the optimizer's use of plans with dynamic bitmap scan."),
+			NULL,
+			GUC_NOT_IN_SAMPLE
+		},
+		&optimizer_enable_dynamicbitmapscan,
 		true,
 		NULL, NULL, NULL
 	},
@@ -2920,14 +2963,13 @@ struct config_bool ConfigureNamesBool_gp[] =
 	},
 
 	{
-		{"gp_reject_internal_tcp_connection", PGC_POSTMASTER,
-			DEVELOPER_OPTIONS,
-			gettext_noop("Permit internal TCP connections to the master."),
+		{"gp_reject_internal_tcp_connection", PGC_POSTMASTER, DEFUNCT_OPTIONS,
+			gettext_noop("Unused. Syntax check only for GPDB compatibility."),
 			NULL,
 			GUC_NO_SHOW_ALL | GUC_NOT_IN_SAMPLE
 		},
 		&gp_reject_internal_tcp_conn,
-		true,
+		false,
 		NULL, NULL, NULL
 	},
 
@@ -2982,6 +3024,17 @@ struct config_bool ConfigureNamesBool_gp[] =
 			GUC_NO_SHOW_ALL | GUC_NOT_IN_SAMPLE
 		},
 		&optimizer_use_gpdb_allocators,
+		true,
+		NULL, NULL, NULL
+	},
+
+	{
+		{"optimizer_enable_table_alias", PGC_USERSET, DEVELOPER_OPTIONS,
+			gettext_noop("Enable using table aliases to make plan explain more descriptive"),
+			NULL,
+			GUC_NO_SHOW_ALL | GUC_NOT_IN_SAMPLE
+		},
+		&optimizer_enable_table_alias,
 		true,
 		NULL, NULL, NULL
 	},
@@ -3342,6 +3395,17 @@ struct config_bool ConfigureNamesBool_gp[] =
 			&gp_detect_data_correctness,
 			false,
 			NULL, NULL, NULL
+	},
+
+	{
+		{"gp_keep_partition_children_locks", PGC_USERSET, QUERY_TUNING_METHOD,
+		 gettext_noop("Keep locks on partition children during planning"),
+		 NULL,
+		 GUC_NOT_IN_SAMPLE
+		},
+		&gp_keep_partition_children_locks,
+		true,
+		NULL, NULL, NULL
 	},
 
 	/* End-of-list marker */
@@ -4739,6 +4803,16 @@ struct config_int ConfigureNamesInt_gp[] =
 		NULL, NULL, NULL
 	},
 
+	{
+		{"wal_sender_archiving_status_interval", PGC_SIGHUP, REPLICATION_SENDING,
+			gettext_noop("Sets the maximum interval for streaming archival status to standby"),
+			NULL, GUC_UNIT_MS
+		},
+		&wal_sender_archiving_status_interval,
+		10000, 0, INT_MAX,
+		NULL, NULL, NULL
+	},
+
 	/* End-of-list marker */
 	{
 		{NULL, 0, 0, NULL, NULL}, NULL, 0, 0, 0, NULL, NULL
@@ -5727,8 +5801,8 @@ check_gp_workfile_compression(bool *newval, void **extra, GucSource source)
 	return true;
 }
 
-void
-DispatchSyncPGVariable(struct config_generic * gconfig)
+static void
+dispatch_sync_pg_variable_internal(struct config_generic * gconfig, bool is_explicit)
 {
 	StringInfoData buffer;
 
@@ -5830,5 +5904,28 @@ DispatchSyncPGVariable(struct config_generic * gconfig)
 
 	}
 
-	CdbDispatchSetCommand(buffer.data, false);
+	if (is_explicit)
+		CdbDispatchSetCommandForSync(buffer.data);
+	else
+		CdbDispatchSetCommand(buffer.data, false);
+}
+
+/*
+ * Dispatches a regular SET command to all reader and writer gangs.
+ */
+void
+DispatchSyncPGVariable(struct config_generic * gconfig)
+{
+	return dispatch_sync_pg_variable_internal(gconfig, false);
+}
+
+/*
+ * This function behaves like DispatchSyncPGVariable(), but also sets the GUC
+ * source to PGC_CLIENT, just like we do in ProcessStartupPacket(), and
+ * bypasses GUC contexts up to PGC_SIGHUP.
+ */
+void
+DispatchSyncPGVariableExplicit(struct config_generic * gconfig)
+{
+	return dispatch_sync_pg_variable_internal(gconfig, true);
 }
