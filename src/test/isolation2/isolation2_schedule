@@ -317,6 +317,9 @@ test: distributed_transactions
 # Test for distributed commit array overflow during replay on standby
 test: standby_replay_dtx_info
 
+# test the orphan temp table is dropped on the coordinator when panic happens on segment
+test: orphan_temp_table
+
 # Test for concurrent vacuum with delete
 test: concurrent_vacuum_with_delete
 
@@ -350,3 +353,5 @@ test: copy_insert_utility_mode_hierarchies
 test: free_remapper_fatal
 
 test: spilling_hashagg
+
+test: copy_interrupt
