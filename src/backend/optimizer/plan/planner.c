@@ -247,6 +247,8 @@ standard_planner(Query *parse, int cursorOptions, ParamListInfo boundParams)
 			elog(LOG, "Optimizer Time: %.3f ms", INSTR_TIME_GET_MILLISEC(endtime));
 		}
 
+		result->hasReturning = (parse->returningList != NIL);
+
 		if (result)
 			return result;
 	}

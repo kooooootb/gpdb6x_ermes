@@ -5755,6 +5755,7 @@ CTranslatorExprToDXL::PdxlnDML(CExpression *pexpr,
 	CExpression *pexprChild = (*pexpr)[0];
 	CTableDescriptor *ptabdesc = popDML->Ptabdesc();
 	CColRefArray *pdrgpcrSource = popDML->PdrgpcrSource();
+	CColRefArray *pdrgpcrOutput = popDML->PdrgpcrOutput();
 
 	CColRef *pcrAction = popDML->PcrAction();
 	GPOS_ASSERT(NULL != pcrAction);
@@ -5788,8 +5789,8 @@ CTranslatorExprToDXL::PdxlnDML(CExpression *pexpr,
 		pexprChild, pdrgpcrSource, pdrgpdsBaseTables, pulNonGatherMotions,
 		pfDML, false /*fRemap*/, false /*fRoot*/);
 
-	CDXLTableDescr *table_descr = MakeDXLTableDescr(
-		ptabdesc, NULL /*pdrgpcrOutput*/, NULL /*requiredProperties*/);
+	CDXLTableDescr *table_descr =
+		MakeDXLTableDescr(ptabdesc, pdrgpcrOutput, pexpr->Prpp());
 	ULongPtrArray *pdrgpul = CUtils::Pdrgpul(m_mp, pdrgpcrSource);
 
 	CDXLDirectDispatchInfo *dxl_direct_dispatch_info =
@@ -5799,15 +5800,32 @@ CTranslatorExprToDXL::PdxlnDML(CExpression *pexpr,
 						ctid_colid, segid_colid, preserve_oids, tuple_oid,
 						tableoid_colid, dxl_direct_dispatch_info);
 
+	// Remove unused columns from output after creating table descriptor
+	ULONG outputColIndex = 0;
+	while (outputColIndex < pdrgpcrOutput->Size())
+	{
+		CColRef *colref = (*pdrgpcrOutput)[outputColIndex];
+		if (colref->GetUsage() == CColRef::EUnused)
+		{
+			pdrgpcrOutput->Swap(outputColIndex, pdrgpcrOutput->Size() - 1);
+			pdrgpcrOutput->RemoveLast();
+		}
+		else
+		{
+			outputColIndex++;
+		}
+	}
+
 	// project list
-	CColRefSet *pcrsOutput = pexpr->Prpp()->PcrsRequired();
-	CDXLNode *pdxlnPrL = PdxlnProjList(pcrsOutput, pdrgpcrSource);
+	CDXLNode *pdxlnPrL = PdxlnProjList(NULL, pdrgpcrSource);
+	CDXLNode *pdxlnPrLOutput = PdxlnProjList(NULL, pdrgpcrOutput);
 
 	CDXLNode *pdxlnDML = GPOS_NEW(m_mp) CDXLNode(m_mp, pdxlopDML);
 	CDXLPhysicalProperties *dxl_properties = GetProperties(pexpr);
 	pdxlnDML->SetProperties(dxl_properties);
 
 	pdxlnDML->AddChild(pdxlnPrL);
+	pdxlnDML->AddChild(pdxlnPrLOutput);
 	pdxlnDML->AddChild(child_dxlnode);
 
 #ifdef GPOS_DEBUG
@@ -7707,7 +7725,7 @@ CDXLNode *
 CTranslatorExprToDXL::PdxlnProjList(const CColRefSet *pcrsOutput,
 									CColRefArray *colref_array)
 {
-	GPOS_ASSERT(NULL != pcrsOutput);
+	GPOS_ASSERT_IMP(NULL == pcrsOutput, colref_array != NULL);
 
 	CDXLScalarProjList *pdxlopPrL = GPOS_NEW(m_mp) CDXLScalarProjList(m_mp);
 	CDXLNode *pdxlnPrL = GPOS_NEW(m_mp) CDXLNode(m_mp, pdxlopPrL);
@@ -7726,18 +7744,21 @@ CTranslatorExprToDXL::PdxlnProjList(const CColRefSet *pcrsOutput,
 			pcrs->Include(colref);
 		}
 
-		// add the remaining required columns
-		CColRefSetIter crsi(*pcrsOutput);
-		while (crsi.Advance())
+		if (pcrsOutput != NULL)
 		{
-			CColRef *colref = crsi.Pcr();
-
-			if (!pcrs->FMember(colref))
+			// add the remaining required columns
+			CColRefSetIter crsi(*pcrsOutput);
+			while (crsi.Advance())
 			{
-				CDXLNode *pdxlnPrEl = CTranslatorExprToDXLUtils::PdxlnProjElem(
-					m_mp, m_phmcrdxln, colref);
-				pdxlnPrL->AddChild(pdxlnPrEl);
-				pcrs->Include(colref);
+				CColRef *colref = crsi.Pcr();
+
+				if (!pcrs->FMember(colref))
+				{
+					CDXLNode *pdxlnPrEl = CTranslatorExprToDXLUtils::PdxlnProjElem(
+							m_mp, m_phmcrdxln, colref);
+					pdxlnPrL->AddChild(pdxlnPrEl);
+					pcrs->Include(colref);
+				}
 			}
 		}
 		pcrs->Release();

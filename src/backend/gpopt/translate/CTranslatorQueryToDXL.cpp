@@ -492,11 +492,6 @@ CTranslatorQueryToDXL::TranslateSelectQueryToDXL()
 	// We therefore need to check permissions before we go into optimization for all RTEs, including the ones not explicitly referred in the query, e.g. views.
 	CTranslatorUtils::CheckRTEPermissions(m_query->rtable);
 
-	// RETURNING is not supported yet.
-	if (m_query->returningList)
-		GPOS_RAISE(gpdxl::ExmaDXL, gpdxl::ExmiQuery2DXLUnsupportedFeature,
-				   GPOS_WSZ_LIT("RETURNING clause"));
-
 	CDXLNode *child_dxlnode = NULL;
 	IntToUlongMap *sort_group_attno_to_colid_mapping =
 		GPOS_NEW(m_mp) IntToUlongMap(m_mp);
@@ -817,7 +812,62 @@ CTranslatorQueryToDXL::TranslateInsertQueryToDXL()
 		query_dxlnode = project_dxlnode;
 	}
 
-	return GPOS_NEW(m_mp) CDXLNode(m_mp, insert_dxlnode, query_dxlnode);
+	CDXLNode *log_insert_dxlnode =
+		GPOS_NEW(m_mp) CDXLNode(m_mp, insert_dxlnode, query_dxlnode);
+
+	if (NULL != m_query->returningList)
+	{
+		m_var_to_colid_map->LoadTblColumns(
+			m_query_level, m_query->resultRelation, table_descr);
+
+		IntToUlongMap *output_attno_to_colid_mapping =
+			GPOS_NEW(m_mp) IntToUlongMap(m_mp);
+
+		CDXLNode *returning_proj_list_dxlnode = GPOS_NEW(m_mp)
+			CDXLNode(m_mp, GPOS_NEW(m_mp) CDXLScalarProjList(m_mp));
+
+		ListCell *lc = NULL;
+		ForEach(lc, m_query->returningList)
+		{
+			// returning list contains entries identical to SELECT targetEntry
+			TargetEntry *target_entry = (TargetEntry *) lfirst(lc);
+
+			// get projElem operator from entry
+			CDXLNode *project_elem_dxlnode = TranslateExprToDXLProject(
+				target_entry->expr, target_entry->resname, true);
+
+			// add column to the list of output columns of the query
+			ULONG colid =
+				CDXLScalarProjElem::Cast(project_elem_dxlnode->GetOperator())
+					->Id();
+			StoreAttnoColIdMapping(output_attno_to_colid_mapping,
+								   target_entry->resno, colid);
+
+			returning_proj_list_dxlnode->AddChild(project_elem_dxlnode);
+		}
+
+		// this array is filled earlier with target list and was used to get colids by their indices earlier
+		// now fill it with what will truly be returned
+		m_dxl_query_output_cols = CreateDXLOutputCols(
+			m_query->returningList, output_attno_to_colid_mapping);
+
+		GPOS_ASSERT(0 < returning_proj_list_dxlnode->Arity());
+
+		CDXLNode *project_dxlnode = GPOS_NEW(m_mp)
+			CDXLNode(m_mp, GPOS_NEW(m_mp) CDXLLogicalProject(m_mp));
+		project_dxlnode->AddChild(returning_proj_list_dxlnode);
+		project_dxlnode->AddChild(log_insert_dxlnode);
+		log_insert_dxlnode = project_dxlnode;
+
+		output_attno_to_colid_mapping->Release();
+	}
+	else
+	{
+		// we can safely set it to empty array here as we aren't outputting in this path
+		m_dxl_query_output_cols = GPOS_NEW(m_mp) CDXLNodeArray(m_mp);
+	}
+
+	return log_insert_dxlnode;
 }
 
 //---------------------------------------------------------------------------
