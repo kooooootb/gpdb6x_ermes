@@ -242,5 +242,7 @@ optimize_query(Query *parse, ParamListInfo boundParams)
 	result->invalItems = glob->invalItems;
 	result->oneoffPlan = glob->oneoffPlan;
 
+	result->hasReturning = true;
+
 	return result;
 }
