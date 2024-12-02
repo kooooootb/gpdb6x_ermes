@@ -57,6 +57,11 @@ if (COMPILER_HAS_WNO_UNUSED_BUT_SET_VARIABLE)
   SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-but-set-variable")
 endif()
 
+check_cxx_compiler_flag("-Wno-nonnull-compare" COMPILER_HAS_WNO_NONNULL_COMPARE)
+if (COMPILER_HAS_WNO_NONNULL_COMPARE)
+  SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-nonnull-compare")
+endif()
+
 # Generate maximum detail for DEBUG information with -g3 if available.
 check_cxx_compiler_flag("-g3" COMPILER_HAS_G3)
 if (COMPILER_HAS_G3)
