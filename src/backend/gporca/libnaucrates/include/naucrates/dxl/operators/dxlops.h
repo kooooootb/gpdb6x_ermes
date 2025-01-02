@@ -31,6 +31,7 @@
 #include "naucrates/dxl/operators/CDXLLogicalJoin.h"
 #include "naucrates/dxl/operators/CDXLLogicalLimit.h"
 #include "naucrates/dxl/operators/CDXLLogicalProject.h"
+#include "naucrates/dxl/operators/CDXLLogicalReturning.h"
 #include "naucrates/dxl/operators/CDXLLogicalSelect.h"
 #include "naucrates/dxl/operators/CDXLLogicalSetOp.h"
 #include "naucrates/dxl/operators/CDXLLogicalTVF.h"

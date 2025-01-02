@@ -1,22 +1,19 @@
 //---------------------------------------------------------------------------
-//	Greenplum Database
-//	Copyright (C) 2012 EMC Corp.
 //
 //	@filename:
-//		CDXLLogicalInsert.cpp
+//		CDXLLogicalReturning.cpp
 //
 //	@doc:
-//		Implementation of DXL logical insert operator
+//		Implementation of DXL logical returning operator
 //---------------------------------------------------------------------------
 
-#include "naucrates/dxl/operators/CDXLLogicalInsert.h"
+#include "naucrates/dxl/operators/CDXLLogicalReturning.h"
 
 #include "gpos/string/CWStringDynamic.h"
 
 #include "naucrates/dxl/CDXLUtils.h"
 #include "naucrates/dxl/operators/CDXLNode.h"
 #include "naucrates/dxl/operators/CDXLOperator.h"
-#include "naucrates/dxl/operators/CDXLTableDescr.h"
 #include "naucrates/dxl/xml/CXMLSerializer.h"
 
 using namespace gpos;
@@ -24,91 +21,73 @@ using namespace gpdxl;
 
 //---------------------------------------------------------------------------
 //	@function:
-//		CDXLLogicalInsert::CDXLLogicalInsert
+//		CDXLLogicalReturning::CDXLLogicalReturning
 //
 //	@doc:
 //		Ctor
 //
 //---------------------------------------------------------------------------
-CDXLLogicalInsert::CDXLLogicalInsert(CMemoryPool *mp,
-									 CDXLTableDescr *table_descr,
-									 ULongPtrArray *src_colids_array)
-	: CDXLLogical(mp),
-	  m_dxl_table_descr(table_descr),
-	  m_src_colids_array(src_colids_array)
+CDXLLogicalReturning::CDXLLogicalReturning(CMemoryPool *mp) : CDXLLogical(mp)
 {
-	GPOS_ASSERT(NULL != table_descr);
-	GPOS_ASSERT(NULL != src_colids_array);
 }
 
 //---------------------------------------------------------------------------
 //	@function:
-//		CDXLLogicalInsert::~CDXLLogicalInsert
+//		CDXLLogicalReturning::~CDXLLogicalReturning
 //
 //	@doc:
 //		Dtor
 //
 //---------------------------------------------------------------------------
-CDXLLogicalInsert::~CDXLLogicalInsert()
+CDXLLogicalReturning::~CDXLLogicalReturning()
 {
-	m_dxl_table_descr->Release();
-	m_src_colids_array->Release();
 }
 
 //---------------------------------------------------------------------------
 //	@function:
-//		CDXLLogicalInsert::GetDXLOperator
+//		CDXLLogicalReturning::GetDXLOperator
 //
 //	@doc:
 //		Operator type
 //
 //---------------------------------------------------------------------------
 Edxlopid
-CDXLLogicalInsert::GetDXLOperator() const
+CDXLLogicalReturning::GetDXLOperator() const
 {
-	return EdxlopLogicalInsert;
+	return EdxlopLogicalReturning;
 }
 
 //---------------------------------------------------------------------------
 //	@function:
-//		CDXLLogicalInsert::GetOpNameStr
+//		CDXLLogicalReturning::GetOpNameStr
 //
 //	@doc:
 //		Operator name
 //
 //---------------------------------------------------------------------------
 const CWStringConst *
-CDXLLogicalInsert::GetOpNameStr() const
+CDXLLogicalReturning::GetOpNameStr() const
 {
-	return CDXLTokens::GetDXLTokenStr(EdxltokenLogicalInsert);
+	return CDXLTokens::GetDXLTokenStr(EdxltokenLogicalReturning);
 }
 
 //---------------------------------------------------------------------------
 //	@function:
-//		CDXLLogicalInsert::SerializeToDXL
+//		CDXLLogicalReturning::SerializeToDXL
 //
 //	@doc:
 //		Serialize function descriptor in DXL format
 //
 //---------------------------------------------------------------------------
 void
-CDXLLogicalInsert::SerializeToDXL(CXMLSerializer *xml_serializer,
-								  const CDXLNode *node) const
+CDXLLogicalReturning::SerializeToDXL(CXMLSerializer *xml_serializer,
+									 const CDXLNode *node) const
 {
 	const CWStringConst *element_name = GetOpNameStr();
 	xml_serializer->OpenElement(
 		CDXLTokens::GetDXLTokenStr(EdxltokenNamespacePrefix), element_name);
 
-	CWStringDynamic *src_colids =
-		CDXLUtils::Serialize(m_mp, m_src_colids_array);
-	xml_serializer->AddAttribute(
-		CDXLTokens::GetDXLTokenStr(EdxltokenInsertCols), src_colids);
-	GPOS_DELETE(src_colids);
-
-	// serialize table descriptor
-	m_dxl_table_descr->SerializeToDXL(xml_serializer);
-
-	// serialize arguments
+	// serialize children
 	node->SerializeChildrenToDXL(xml_serializer);
 
 	xml_serializer->CloseElement(
@@ -118,36 +97,27 @@ CDXLLogicalInsert::SerializeToDXL(CXMLSerializer *xml_serializer,
 #ifdef GPOS_DEBUG
 //---------------------------------------------------------------------------
 //	@function:
-//		CDXLLogicalInsert::AssertValid
+//		CDXLLogicalReturning::AssertValid
 //
 //	@doc:
 //		Checks whether operator node is well-structured
 //
 //---------------------------------------------------------------------------
 void
-CDXLLogicalInsert::AssertValid(const CDXLNode *node,
-							   BOOL validate_children) const
+CDXLLogicalReturning::AssertValid(const CDXLNode *node,
+								  BOOL validate_children) const
 {
 	const ULONG num_of_child = node->Arity();
-	GPOS_ASSERT(num_of_child <= 2);
+	GPOS_ASSERT(num_of_child == 1);
 
-	CDXLNode *child_dxlnode = (*node)[0];
-	GPOS_ASSERT(EdxloptypeLogical ==
-				child_dxlnode->GetOperator()->GetDXLOperatorType());
-
-	if (2 == num_of_child)
+	if (validate_children)
 	{
-		CDXLNode *returning_dxlnode = (*node)[1];
-		GPOS_ASSERT(EdxlopLogicalReturning ==
-					returning_dxlnode->GetOperator()->GetDXLOperator());
-	}
+		CDXLNode *child_dxlnode = (*node)[0];
 
-	for (ULONG idx = 0; idx < num_of_child; ++idx)
-	{
-		CDXLNode *dxlnode = (*node)[idx];
 		if (validate_children)
 		{
-			dxlnode->GetOperator()->AssertValid(dxlnode, validate_children);
+			child_dxlnode->GetOperator()->AssertValid(child_dxlnode,
+													  validate_children);
 		}
 	}
 }

@@ -140,6 +140,9 @@ private:
 	// translate a DXL logical window into an expr logical project
 	CExpression *PexprLogicalSeqPr(const CDXLNode *pdxlnLgProject);
 
+	// translate a DXL logical returning into an expr logical project
+	CExpression *PexprLogicalReturning(const CDXLNode *pdxlnLgProject);
+
 	// create the array of column reference used in the partition by column
 	// list of a window specification
 	CColRefArray *PdrgpcrPartitionByCol(

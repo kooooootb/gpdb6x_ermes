@@ -150,6 +150,8 @@ CTranslatorDXLToExpr::InitTranslators()
 		 &gpopt::CTranslatorDXLToExpr::PexprLogicalConstTableGet},
 		{EdxlopLogicalSetOp, &gpopt::CTranslatorDXLToExpr::PexprLogicalSetOp},
 		{EdxlopLogicalWindow, &gpopt::CTranslatorDXLToExpr::PexprLogicalSeqPr},
+		{EdxlopLogicalReturning,
+		 &gpopt::CTranslatorDXLToExpr::PexprLogicalReturning},
 		{EdxlopLogicalInsert, &gpopt::CTranslatorDXLToExpr::PexprLogicalInsert},
 		{EdxlopLogicalDelete, &gpopt::CTranslatorDXLToExpr::PexprLogicalDelete},
 		{EdxlopLogicalUpdate, &gpopt::CTranslatorDXLToExpr::PexprLogicalUpdate},
@@ -1398,9 +1400,15 @@ CTranslatorDXLToExpr::PexprLogicalInsert(const CDXLNode *dxlnode)
 	CColRefArray *colref_array =
 		CTranslatorDXLToExprUtils::Pdrgpcr(m_mp, m_phmulcr, pdrgpulSourceCols);
 
-	return GPOS_NEW(m_mp) CExpression(
-		m_mp, GPOS_NEW(m_mp) CLogicalInsert(m_mp, ptabdesc, colref_array),
-		pexprChild);
+	CLogicalInsert *pexprLogInsert =
+		GPOS_NEW(m_mp) CLogicalInsert(m_mp, ptabdesc, colref_array);
+
+	// construct the mapping between the DXL ColId and CColRef
+	ConstructDXLColId2ColRefMapping(
+		pdxlopInsert->GetDXLTableDescr()->GetColumnDescr(),
+		pexprLogInsert->PdrgpcrOutput());
+
+	return GPOS_NEW(m_mp) CExpression(m_mp, pexprLogInsert, pexprChild);
 }
 
 //---------------------------------------------------------------------------
@@ -1847,6 +1855,29 @@ CTranslatorDXLToExpr::PexprLogicalSeqPr(const CDXLNode *dxlnode)
 
 	return pexprLgSequence;
 }
+
+//---------------------------------------------------------------------------
+//	@function:
+//		CTranslatorDXLToExpr::PexprLogicalReturning
+//
+//	@doc:
+// 		Create a logical returning expr from a DXL logical returning
+//
+//---------------------------------------------------------------------------
+CExpression *
+CTranslatorDXLToExpr::PexprLogicalReturning(const CDXLNode *dxlnode)
+{
+	GPOS_ASSERT(NULL != dxlnode);
+
+	// translate the project list
+	CDXLNode *pdxlnPrL = (*dxlnode)[0];
+	GPOS_ASSERT(EdxlopScalarProjectList ==
+				pdxlnPrL->GetOperator()->GetDXLOperator());
+	CExpression *pexprProjList = PexprScalarProjList(pdxlnPrL);
+
+	return pexprProjList;
+}
+
 
 //---------------------------------------------------------------------------
 //	@function:

@@ -36,6 +36,7 @@ OBJS        = CDXLColDescr.o \
               CDXLLogicalGroupBy.o \
               CDXLLogicalInsert.o \
               CDXLLogicalJoin.o \
+              CDXLLogicalReturning.o \
               CDXLLogicalLimit.o \
               CDXLLogicalProject.o \
               CDXLLogicalSelect.o \

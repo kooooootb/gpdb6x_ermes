@@ -716,6 +716,7 @@ CDXLTokens::Init(CMemoryPool *mp)
 		{EdxltokenLogicalSetOperation, GPOS_WSZ_LIT("LogicalSetOperation")},
 		{EdxltokenLogicalTVF, GPOS_WSZ_LIT("LogicalTVF")},
 		{EdxltokenLogicalWindow, GPOS_WSZ_LIT("LogicalWindow")},
+		{EdxltokenLogicalReturning, GPOS_WSZ_LIT("LogicalReturning")},
 
 		{EdxltokenLogicalInsert, GPOS_WSZ_LIT("LogicalInsert")},
 		{EdxltokenLogicalDelete, GPOS_WSZ_LIT("LogicalDelete")},

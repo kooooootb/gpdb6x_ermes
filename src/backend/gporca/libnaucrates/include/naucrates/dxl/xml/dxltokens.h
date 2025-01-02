@@ -660,6 +660,7 @@ enum Edxltoken
 	EdxltokenLogicalSetOperation,
 	EdxltokenLogicalTVF,
 	EdxltokenLogicalWindow,
+	EdxltokenLogicalReturning,
 
 	EdxltokenLogicalInsert,
 	EdxltokenLogicalDelete,
