@@ -37,6 +37,12 @@ private:
 	// columns to delete
 	CColRefArray *m_pdrgpcr;
 
+	// returning columns
+	CColRefArray *m_pdrgpcrOutput;
+
+	// partition keys
+	CColRef2dArray *m_pdrgpdrgpcrPart;
+
 	// ctid column
 	CColRef *m_pcrCtid;
 
@@ -57,6 +63,12 @@ public:
 	CLogicalDelete(CMemoryPool *mp, CTableDescriptor *ptabdesc,
 				   CColRefArray *colref_array, CColRef *pcrCtid,
 				   CColRef *pcrSegmentId, CColRef *pcrTableOid);
+
+	// ctor
+	CLogicalDelete(CMemoryPool *mp, CTableDescriptor *ptabdesc,
+				   CColRefArray *colref_array, CColRefArray *pdrgpcrOutput,
+				   CColRef *pcrCtid, CColRef *pcrSegmentId,
+				   CColRef *pcrTableOid);
 
 	// dtor
 	virtual ~CLogicalDelete();
@@ -80,6 +92,13 @@ public:
 	Pdrgpcr() const
 	{
 		return m_pdrgpcr;
+	}
+
+	// output columns
+	CColRefArray *
+	PdrgpcrOutput() const
+	{
+		return m_pdrgpcrOutput;
 	}
 
 	// ctid column

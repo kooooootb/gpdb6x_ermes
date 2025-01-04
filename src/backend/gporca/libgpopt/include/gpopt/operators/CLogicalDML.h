@@ -52,6 +52,12 @@ private:
 	// source columns
 	CColRefArray *m_pdrgpcrSource;
 
+	// returning columns
+	CColRefArray *m_pdrgpcrOutput;
+
+	// partition keys
+	CColRef2dArray *m_pdrgpdrgpcrPart;
+
 	// set of modified columns from the target table
 	CBitSet *m_pbsModified;
 
@@ -81,9 +87,9 @@ public:
 	// ctor
 	CLogicalDML(CMemoryPool *mp, EDMLOperator edmlop,
 				CTableDescriptor *ptabdesc, CColRefArray *colref_array,
-				CBitSet *pbsModified, CColRef *pcrAction, CColRef *pcrCtid,
-				CColRef *pcrSegmentId, CColRef *pcrTupleOid,
-				CColRef *pcrTableOid);
+				CColRefArray *pdrgpcrOutput, CBitSet *pbsModified,
+				CColRef *pcrAction, CColRef *pcrCtid, CColRef *pcrSegmentId,
+				CColRef *pcrTupleOid, CColRef *pcrTableOid);
 
 	// dtor
 	virtual ~CLogicalDML();
@@ -115,6 +121,14 @@ public:
 	{
 		return m_pdrgpcrSource;
 	}
+
+	// output columns
+	CColRefArray *
+	PdrgpcrOutput() const
+	{
+		return m_pdrgpcrOutput;
+	}
+
 
 	// modified columns set
 	CBitSet *
