@@ -212,6 +212,7 @@ CQueryContext::PqcGenerate(CMemoryPool *mp, CExpression *pexpr,
 	CDistributionSpec *pds = NULL;
 
 	BOOL fDML = CUtils::FLogicalDML(pexpr->Pop());
+	// BOOL fDML = false;
 	poptctxt->MarkDMLQuery(fDML);
 
 	// DML commands do not have distribution requirement. Otherwise the
