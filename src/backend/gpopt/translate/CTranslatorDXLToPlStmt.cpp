@@ -4190,9 +4190,8 @@ CTranslatorDXLToPlStmt::TranslateDXLDml(
 							 NULL,	// translate context for the base table
 							 child_contexts, output_context);
 
-	List *dml_returning_list =
-		TranslateDXLProjList(project_list_output_dxlnode, &base_table_context,
-							 child_contexts, output_context);
+	TranslateDXLProjList(project_list_output_dxlnode, &base_table_context,
+						 child_contexts, output_context);
 
 	// Create target list with nulls if rel has dropped cols. DELETE may have
 	// empty target list if there no after trigger present. Skip creating in
