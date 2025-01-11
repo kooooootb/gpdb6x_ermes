@@ -5800,9 +5800,23 @@ CTranslatorExprToDXL::PdxlnDML(CExpression *pexpr,
 						ctid_colid, segid_colid, preserve_oids, tuple_oid,
 						tableoid_colid, dxl_direct_dispatch_info);
 
+	// Remove unused columns from output
+	ULONG outputColIndex = 0;
+	while (outputColIndex < pdrgpcrOutput->Size())
+	{
+		CColRef *colref = (*pdrgpcrOutput)[outputColIndex];
+		if (colref->GetUsage() == CColRef::EUnused)
+		{
+			pdrgpcrOutput->Swap(outputColIndex, pdrgpcrOutput->Size() - 1);
+			pdrgpcrOutput->RemoveLast();
+		}
+		else
+		{
+			outputColIndex++;
+		}
+	}
+
 	// project list
-	// CColRefSet *pcrsOutput = pexpr->Prpp()->PcrsRequired();
-	// CDXLNode *pdxlnPrL = PdxlnProjList(pcrsOutput, pdrgpcrSource);
 	CDXLNode *pdxlnPrL = PdxlnProjList(NULL, pdrgpcrSource);
 	CDXLNode *pdxlnPrLOutput = PdxlnProjList(NULL, pdrgpcrOutput);
 
